@@ -786,7 +786,7 @@ class DataGatherer(threading.Thread):
         AppData().set('paths',paths)
 
 class DataGatherer_JsonServer(DataGatherer):
-    def __init__(self):
+    def __init__(self,args):
         # initialize parent class
         super(DataGatherer_JsonServer,self).__init__()
         # local variables
@@ -816,16 +816,24 @@ class DataGatherer_JsonServer(DataGatherer):
             self.status['connectionToJsonServer'] = 'up'
 
 class DataGatherer_serial(DataGatherer):
-    def __init__(self):
+    def __init__(self,args):
         
         # initialize parent class
         super(DataGatherer_serial,self).__init__()
         
         # instantiate a JsonManager
+        if args['serialport']:
+            autoaddmgr            = False
+            autodeletemgr         = False
+            serialport            = args['serialport']
+        else:
+            autoaddmgr            = True
+            autodeletemgr         = True
+            serialport            = None
         self.jsonManager          = JsonManager.JsonManager(
-            autoaddmgr            = True,
-            autodeletemgr         = True,
-            serialport            = None,
+            autoaddmgr            = autoaddmgr,
+            autodeletemgr         = autodeletemgr,
+            serialport            = serialport,
             configfilename        = None,
             notifCb               = self._notif_cb,
         )
@@ -1191,10 +1199,11 @@ class WebServer(object):
 
 class SeeTheMesh(object):
     
-    def __init__(self,managerconnection,tcpport,showhub,BOTTLE_STATIC_PATH,BOTTLE_TEMPLATE_PATH,LatLngClass):
+    def __init__(self,managerconnection,serialport,tcpport,showhub,BOTTLE_STATIC_PATH,BOTTLE_TEMPLATE_PATH,LatLngClass):
         
         # store params
         self.managerconnection    = managerconnection
+        self.serialport           = serialport
         self.tcpport              = tcpport
         self.showhub              = showhub
         self.BOTTLE_STATIC_PATH   = BOTTLE_STATIC_PATH
@@ -1205,7 +1214,11 @@ class SeeTheMesh(object):
         found = False
         for sc in DataGatherer.__subclasses__():
             if sc.__name__[len('DataGatherer_'):].lower()==self.managerconnection.lower():
-                self.dataGatherer = sc()
+                self.dataGatherer = sc(
+                    args = {
+                        'serialport':serialport,
+                    }
+                )
                 found = True
                 break
         if not found:
@@ -1275,6 +1288,7 @@ if __name__=="__main__":
     # command line arguments
     parser = argparse.ArgumentParser()
     parser.add_argument('--managerconnection', default='serial')
+    parser.add_argument('--serialport',        default=None)
     parser.add_argument('--tcpport',           default=DFLT_TCPPORT)
     parser.add_argument('--showhub',           default=False)
     args = vars(parser.parse_args())
